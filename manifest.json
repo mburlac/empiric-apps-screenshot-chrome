@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Empiric Studio",
+  "version": "2.2.0",
+  "description": "Premium screenshot tool. Capture full page or region, annotate with shapes, text, blur, redact. Copy to clipboard.",
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "scripting",
+    "offscreen",
+    "downloads",
+    "storage",
+    "clipboardWrite"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

@@ -1,0 +1,261 @@
+:root {
+  --bg: #F5F5F7;
+  --toolbar-bg: #FFFFFF;
+  --border: #E5E5E7;
+  --text: #1D1D1F;
+  --text-muted: #86868B;
+  --accent: #1D4ED8;
+  --accent-hover: #1E3A8A;
+  --selected: #3B82F6;
+  --radius-md: 10px;
+  --radius-sm: 7px;
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* --------- Toolbar --------- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  row-gap: 6px;
+  padding: 10px 14px;
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  z-index: 10;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.toolbar .group.actions {
+  margin-left: auto;
+}
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.group[hidden] { display: none; }
+
+.group-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+  margin-right: 4px;
+  user-select: none;
+}
+
+.divider {
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.spacer {
+  display: none;
+}
+
+/* --------- Tool buttons --------- */
+
+.tool, .icon-btn, .stroke {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.tool svg, .icon-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.tool:hover:not(.active),
+.icon-btn:hover:not(:disabled),
+.stroke:hover:not(.active) {
+  background: #EFEFF2;
+}
+
+.tool.active,
+.stroke.active {
+  background: var(--accent);
+  color: #FFFFFF;
+}
+
+.icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.stroke span {
+  display: inline-block;
+  background: currentColor;
+  border-radius: 999px;
+}
+
+/* --------- Color swatches --------- */
+
+.colors {
+  gap: 5px;
+}
+
+.swatch {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s ease, border-color 0.12s ease;
+}
+
+.swatch:hover {
+  transform: scale(1.08);
+}
+
+.swatch.active {
+  border-color: var(--selected);
+  box-shadow: 0 0 0 1px var(--toolbar-bg) inset;
+}
+
+.swatch-none {
+  background: #FFFFFF !important;
+  border: 2px solid #E5E5E7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.swatch-none svg {
+  width: 16px;
+  height: 16px;
+}
+.swatch-none.active {
+  border-color: var(--selected);
+}
+
+.swatch-custom {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: conic-gradient(from 0deg, #FF3B30, #FF9500, #FFCC00, #34C759, #0A84FF, #AF52DE, #FF3B30) !important;
+  overflow: hidden;
+}
+.swatch-custom input[type="color"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+}
+
+/* --------- Actions --------- */
+
+.btn-text {
+  padding: 7px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.btn-text:hover { background: #EFEFF2; }
+
+.btn-primary {
+  padding: 7px 16px;
+  border: none;
+  background: var(--accent);
+  color: #FFFFFF;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.08s ease;
+}
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:active { transform: scale(0.97); }
+
+/* --------- Canvas --------- */
+
+.canvas-wrap {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 20px;
+  position: relative;
+  background:
+    linear-gradient(45deg, #E5E5E7 25%, transparent 25%),
+    linear-gradient(-45deg, #E5E5E7 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #E5E5E7 75%),
+    linear-gradient(-45deg, transparent 75%, #E5E5E7 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-color: #F5F5F7;
+}
+
+#canvas {
+  display: block;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+  background: #FFFFFF;
+}
+
+#canvas.tool-select { cursor: default; }
+#canvas.tool-select.over-shape { cursor: move; }
+#canvas.tool-draw { cursor: crosshair; }
+#canvas.tool-eyedropper { cursor: copy; }
+#canvas.tool-text { cursor: text; }
+
+.text-overlay {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px dashed var(--selected);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  white-space: pre;
+  line-height: 1.2;
+  min-width: 60px;
+}

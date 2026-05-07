@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Empiric Studio — www.empiricapps.com</title>
+  <link rel="stylesheet" href="editor.css">
+</head>
+<body>
+  <div class="toolbar">
+    <div class="group tools" id="tools">
+      <button class="tool" data-tool="select" title="Select (V)" aria-label="Select">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l7 16 2-7 7-2z"/></svg>
+      </button>
+      <button class="tool" data-tool="eyedropper" title="Pick color (I)" aria-label="Pick color">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="2.5" width="6" height="3" rx="0.8" fill="currentColor" stroke="none"/>
+          <path d="M10 5.5v9h4v-9"/>
+          <path d="M10 14.5L12 19L14 14.5"/>
+          <circle cx="12" cy="21" r="0.9" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
+      <button class="tool" data-tool="rect" title="Rectangle (R)" aria-label="Rectangle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1"/></svg>
+      </button>
+      <button class="tool" data-tool="ellipse" title="Ellipse (O)" aria-label="Ellipse">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="8" ry="7"/></svg>
+      </button>
+      <button class="tool" data-tool="line" title="Line (L)" aria-label="Line">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19L19 5"/></svg>
+      </button>
+      <button class="tool" data-tool="arrow" title="Arrow (A)" aria-label="Arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19L19 5"/><path d="M19 11V5H13"/></svg>
+      </button>
+      <button class="tool" data-tool="highlight" title="Highlight (H)" aria-label="Highlight">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l6-6 4 4-6 6H9z"/><path d="M4 20h16"/></svg>
+      </button>
+      <button class="tool" data-tool="marker" title="Marker (M)" aria-label="Marker">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 15c2.5-4 5-4 7.5 0S15.5 19 18 15s3-4 3-4"/>
+        </svg>
+      </button>
+      <button class="tool" data-tool="redact" title="Redact (X)" aria-label="Redact">
+        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="8" width="16" height="8" rx="1"/></svg>
+      </button>
+      <button class="tool" data-tool="badge" title="Number badge (N)" aria-label="Number badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor" stroke="none">1</text></svg>
+      </button>
+      <button class="tool" data-tool="blur" title="Blur (B)" aria-label="Blur">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" opacity="0.3"/><circle cx="12" cy="12" r="6" opacity="0.55"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <button class="tool" data-tool="text" title="Text (T)" aria-label="Text">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2"/><path d="M9 5v14"/><path d="M15 5v14"/><path d="M7 19h10"/></svg>
+      </button>
+    </div>
+
+    <div class="divider" id="fontDivider" hidden></div>
+
+    <div class="group font-size" id="fontSize" hidden>
+      <span class="group-label">Size</span>
+      <button class="stroke" data-font="16" title="Small">S</button>
+      <button class="stroke" data-font="24" title="Medium">M</button>
+      <button class="stroke" data-font="36" title="Large">L</button>
+    </div>
+
+    <div class="divider" id="blurDivider" hidden></div>
+
+    <div class="group blur-intensity" id="blurIntensity" hidden>
+      <span class="group-label">Blur</span>
+      <button class="stroke" data-blur="6" title="Light">6</button>
+      <button class="stroke" data-blur="12" title="Medium">12</button>
+      <button class="stroke" data-blur="18" title="Strong">18</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="group strokes" id="strokes">
+      <button class="stroke" data-stroke="2" title="Thin" aria-label="Thin"><span style="width:20px;height:2px"></span></button>
+      <button class="stroke" data-stroke="4" title="Medium" aria-label="Medium"><span style="width:20px;height:4px"></span></button>
+      <button class="stroke" data-stroke="6" title="Thick" aria-label="Thick"><span style="width:20px;height:6px"></span></button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="group colors" id="colors">
+      <span class="group-label">Stroke</span>
+      <button class="swatch" data-color="#FF3B30" style="background:#FF3B30" aria-label="Red"></button>
+      <button class="swatch" data-color="#FF9500" style="background:#FF9500" aria-label="Orange"></button>
+      <button class="swatch" data-color="#FFCC00" style="background:#FFCC00" aria-label="Yellow"></button>
+      <button class="swatch" data-color="#34C759" style="background:#34C759" aria-label="Green"></button>
+      <button class="swatch" data-color="#1D4ED8" style="background:#1D4ED8" aria-label="Blue"></button>
+      <button class="swatch" data-color="#1D1D1F" style="background:#1D1D1F" aria-label="Black"></button>
+      <button class="swatch" data-color="#FFFFFF" style="background:#FFFFFF;border:1px solid #333" aria-label="White"></button>
+      <label class="swatch swatch-custom" title="Custom stroke">
+        <input type="color" id="customColor" value="#FF3B30">
+      </label>
+    </div>
+
+    <div class="divider" id="fillDivider" hidden></div>
+
+    <div class="group fills" id="fills" hidden>
+      <span class="group-label">Fill</span>
+      <button class="swatch swatch-none active" data-fill="" aria-label="No fill">
+        <svg viewBox="0 0 22 22" fill="none"><line x1="4" y1="18" x2="18" y2="4" stroke="#FF3B30" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <button class="swatch" data-fill="#FF3B30" style="background:#FF3B30" aria-label="Red fill"></button>
+      <button class="swatch" data-fill="#FF9500" style="background:#FF9500" aria-label="Orange fill"></button>
+      <button class="swatch" data-fill="#FFCC00" style="background:#FFCC00" aria-label="Yellow fill"></button>
+      <button class="swatch" data-fill="#34C759" style="background:#34C759" aria-label="Green fill"></button>
+      <button class="swatch" data-fill="#1D4ED8" style="background:#1D4ED8" aria-label="Blue fill"></button>
+      <button class="swatch" data-fill="#1D1D1F" style="background:#1D1D1F" aria-label="Black fill"></button>
+      <button class="swatch" data-fill="#FFFFFF" style="background:#FFFFFF;border:1px solid #333" aria-label="White fill"></button>
+      <label class="swatch swatch-custom" title="Custom fill">
+        <input type="color" id="customFill" value="#FF3B30">
+      </label>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="group actions">
+      <button id="undo" class="icon-btn" title="Undo (Cmd+Z)" aria-label="Undo" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5h-4"/></svg>
+      </button>
+      <button id="redo" class="icon-btn" title="Redo (Cmd+Shift+Z)" aria-label="Redo" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0-5 5v0a5 5 0 0 0 5 5h4"/></svg>
+      </button>
+      <button id="cancel" class="btn-text" title="Cancel (Esc)">Cancel</button>
+      <button id="save" class="btn-primary" title="Save (Cmd+S)">Save</button>
+    </div>
+  </div>
+
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <script src="editor.js"></script>
+</body>
+</html>

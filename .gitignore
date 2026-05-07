@@ -1,0 +1,16 @@
+.DS_Store
+.claude/
+.playwright-mcp/
+
+*.zip
+
+# Internal / non-public artifacts
+STORE_LISTING.md
+assets/preview/
+assets/web/
+assets/promo/*.svg
+
+node_modules/
+.env
+.env.local
+*.log
