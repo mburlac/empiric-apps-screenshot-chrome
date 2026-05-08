@@ -23,6 +23,18 @@
     historyIndex: -1,
     draft: null,
     dragging: null,
+    frame: { padding: 0, radius: 0, shadow: false, bg: null },
+  };
+
+  const FRAME_BG_PRESETS = {
+    'none':         null,
+    'grad-blue':    { type: 'gradient', from: '#667eea', to: '#764ba2' },
+    'grad-sunset':  { type: 'gradient', from: '#fa709a', to: '#fee140' },
+    'grad-ocean':   { type: 'gradient', from: '#4facfe', to: '#00f2fe' },
+    'grad-mint':    { type: 'gradient', from: '#a8edea', to: '#fed6e3' },
+    'grad-mono':    { type: 'gradient', from: '#232526', to: '#414345' },
+    'solid-light':  { type: 'solid', color: '#F5F5F7' },
+    'solid-dark':   { type: 'solid', color: '#1D1D1F' },
   };
 
   const FILLABLE_TOOLS = new Set(['rect', 'ellipse']);
@@ -48,6 +60,7 @@
     state.hostname = payload.hostname || 'page';
     state.copyToClipboard = !!payload.copyToClipboard;
     state.dpr = payload.dpr || 1;
+    state.mode = payload.mode || 'region';
 
     const img = await loadImage(payload.dataUrl);
     state.baseImage = img;
@@ -65,6 +78,8 @@
     setFillColor(null);
     setBlurRadius(12);
     setFontSize(24);
+    setFramePadding(0);
+    setFrameRadius(0);
   }
 
   function loadImage(src) {
@@ -366,6 +381,7 @@
   });
 
   canvas.addEventListener('pointerdown', (e) => {
+    if (state.tool === 'frame') return;
     const p = canvasPoint(e);
     canvas.setPointerCapture(e.pointerId);
 
@@ -555,7 +571,7 @@
       btn.classList.toggle('active', btn.dataset.tool === tool);
     });
     canvas.classList.toggle('tool-select', tool === 'select');
-    canvas.classList.toggle('tool-draw', tool !== 'select');
+    canvas.classList.toggle('tool-draw', tool !== 'select' && tool !== 'frame');
     canvas.classList.toggle('tool-eyedropper', tool === 'eyedropper');
     canvas.classList.remove('over-shape');
     const showFill = FILLABLE_TOOLS.has(tool);
@@ -568,6 +584,144 @@
     document.getElementById('fontSize').hidden = !showFont;
     document.getElementById('fontDivider').hidden = !showFont;
     canvas.classList.toggle('tool-text', tool === 'text');
+
+    const isFrame = tool === 'frame';
+    document.getElementById('framePanel').hidden = !isFrame;
+    document.getElementById('frameDivider').hidden = !isFrame;
+    document.getElementById('strokes').hidden = isFrame;
+    document.getElementById('strokesDivider').hidden = isFrame;
+    document.getElementById('colors').hidden = isFrame;
+    document.getElementById('colorsDivider').hidden = isFrame;
+  }
+
+  function applyFramePreview() {
+    const f = state.frame;
+    const wrap = document.getElementById('canvasWrap');
+    const padCss = f.padding || 0;
+    const radCss = f.radius || 0;
+
+    wrap.style.padding = (20 + padCss) + 'px';
+
+    if (f.bg) {
+      wrap.classList.add('frame-on');
+      if (f.bg.type === 'gradient') {
+        wrap.style.backgroundImage = `linear-gradient(135deg, ${f.bg.from}, ${f.bg.to})`;
+        wrap.style.backgroundColor = '';
+      } else {
+        wrap.style.backgroundImage = 'none';
+        wrap.style.backgroundColor = f.bg.color;
+      }
+    } else {
+      wrap.classList.remove('frame-on');
+      wrap.style.backgroundImage = '';
+      wrap.style.backgroundColor = '';
+    }
+
+    canvas.style.borderRadius = radCss + 'px';
+    canvas.style.boxShadow = f.shadow
+      ? '0 12px 48px rgba(0, 0, 0, 0.28)'
+      : '0 8px 32px rgba(0, 0, 0, 0.12)';
+  }
+
+  function setFrameBg(bgId) {
+    state.frame.bg = FRAME_BG_PRESETS[bgId] || null;
+    document.querySelectorAll('#framePanel [data-bg]').forEach((b) => {
+      b.classList.toggle('active', b.dataset.bg === bgId);
+    });
+    applyFramePreview();
+  }
+
+  function setFrameBgCustom(color) {
+    state.frame.bg = { type: 'solid', color };
+    document.querySelectorAll('#framePanel [data-bg]').forEach((b) => b.classList.remove('active'));
+    applyFramePreview();
+  }
+
+  function setFramePadding(px) {
+    state.frame.padding = px;
+    document.querySelectorAll('#framePanel [data-pad]').forEach((b) => {
+      b.classList.toggle('active', Number(b.dataset.pad) === px);
+    });
+    applyFramePreview();
+  }
+
+  function setFrameRadius(px) {
+    state.frame.radius = px;
+    document.querySelectorAll('#framePanel [data-radius]').forEach((b) => {
+      b.classList.toggle('active', Number(b.dataset.radius) === px);
+    });
+    applyFramePreview();
+  }
+
+  function toggleFrameShadow() {
+    state.frame.shadow = !state.frame.shadow;
+    const btn = document.getElementById('frameShadow');
+    btn.classList.toggle('active', state.frame.shadow);
+    btn.setAttribute('aria-pressed', String(state.frame.shadow));
+    applyFramePreview();
+  }
+
+  function roundedRectPath(c, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.lineTo(x + w - r, y);
+    c.arcTo(x + w, y, x + w, y + r, r);
+    c.lineTo(x + w, y + h - r);
+    c.arcTo(x + w, y + h, x + w - r, y + h, r);
+    c.lineTo(x + r, y + h);
+    c.arcTo(x, y + h, x, y + h - r, r);
+    c.lineTo(x, y + r);
+    c.arcTo(x, y, x + r, y, r);
+    c.closePath();
+  }
+
+  function exportWithFrame() {
+    const f = state.frame;
+    const hasFrame = (f.padding > 0) || (f.radius > 0) || f.shadow || f.bg;
+    if (!hasFrame) return canvas;
+
+    const dpr = state.dpr || 1;
+    const padPx = Math.round((f.padding || 0) * dpr);
+    const radPx = Math.round((f.radius || 0) * dpr);
+
+    const out = document.createElement('canvas');
+    out.width = canvas.width + 2 * padPx;
+    out.height = canvas.height + 2 * padPx;
+    const o = out.getContext('2d');
+
+    if (f.bg) {
+      if (f.bg.type === 'gradient') {
+        const grad = o.createLinearGradient(0, 0, out.width, out.height);
+        grad.addColorStop(0, f.bg.from);
+        grad.addColorStop(1, f.bg.to);
+        o.fillStyle = grad;
+      } else {
+        o.fillStyle = f.bg.color;
+      }
+      o.fillRect(0, 0, out.width, out.height);
+    }
+
+    if (f.shadow) {
+      o.save();
+      o.shadowColor = 'rgba(0, 0, 0, 0.30)';
+      o.shadowBlur = 32 * dpr;
+      o.shadowOffsetY = 12 * dpr;
+      o.fillStyle = '#000';
+      roundedRectPath(o, padPx, padPx, canvas.width, canvas.height, radPx);
+      o.fill();
+      o.restore();
+    }
+
+    o.save();
+    if (radPx > 0) {
+      roundedRectPath(o, padPx, padPx, canvas.width, canvas.height, radPx);
+      o.clip();
+    }
+    o.drawImage(canvas, padPx, padPx);
+    o.restore();
+
+    return out;
   }
 
   function setFontSize(px) {
@@ -741,6 +895,20 @@
       btn.addEventListener('click', () => setFontSize(Number(btn.dataset.font)));
     });
 
+    document.querySelectorAll('#framePanel [data-bg]').forEach((btn) => {
+      btn.addEventListener('click', () => setFrameBg(btn.dataset.bg));
+    });
+    document.getElementById('customBg').addEventListener('input', (e) => {
+      setFrameBgCustom(e.target.value);
+    });
+    document.querySelectorAll('#framePanel [data-pad]').forEach((btn) => {
+      btn.addEventListener('click', () => setFramePadding(Number(btn.dataset.pad)));
+    });
+    document.querySelectorAll('#framePanel [data-radius]').forEach((btn) => {
+      btn.addEventListener('click', () => setFrameRadius(Number(btn.dataset.radius)));
+    });
+    document.getElementById('frameShadow').addEventListener('click', toggleFrameShadow);
+
     document.getElementById('undo').addEventListener('click', undo);
     document.getElementById('redo').addEventListener('click', redo);
     document.getElementById('save').addEventListener('click', save);
@@ -769,7 +937,7 @@
       render();
       return;
     }
-    const map = { v: 'select', r: 'rect', o: 'ellipse', l: 'line', a: 'arrow', h: 'highlight', m: 'marker', x: 'redact', n: 'badge', i: 'eyedropper', b: 'blur', t: 'text' };
+    const map = { v: 'select', r: 'rect', o: 'ellipse', l: 'line', a: 'arrow', h: 'highlight', m: 'marker', x: 'redact', n: 'badge', i: 'eyedropper', b: 'blur', t: 'text', f: 'frame' };
     if (!meta && map[e.key.toLowerCase()]) {
       setTool(map[e.key.toLowerCase()]);
     }
@@ -784,11 +952,13 @@
     state.selectedId = null;
     render();
 
+    const exportCanvas = exportWithFrame();
+
     let clipboardPromise = null;
     if (state.copyToClipboard) {
       clipboardPromise = navigator.clipboard.write([
         new ClipboardItem({
-          'image/png': new Promise((resolve) => canvas.toBlob(resolve, 'image/png')),
+          'image/png': new Promise((resolve) => exportCanvas.toBlob(resolve, 'image/png')),
         }),
       ]).then(() => true).catch((err) => {
         console.error('Clipboard write from editor failed:', err);
@@ -796,7 +966,7 @@
       });
     }
 
-    const dataUrl = canvas.toDataURL('image/png');
+    const dataUrl = exportCanvas.toDataURL('image/png');
     const clipboardOk = clipboardPromise ? await clipboardPromise : true;
 
     await chrome.runtime.sendMessage({
@@ -804,6 +974,7 @@
       dataUrl,
       hostname: state.hostname,
       copyToClipboard: state.copyToClipboard && !clipboardOk,
+      mode: state.mode,
     });
     await chrome.storage.session.remove('editor.image');
     window.close();

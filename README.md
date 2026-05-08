@@ -18,9 +18,12 @@ Premium screenshot tool for Chrome — capture full page or any region, annotate
 ## Features
 
 ### Capture modes
-- **Full page** — stitches the entire scrollable page, including content below the fold
-- **Select area** — drag to pick any region of the visible viewport
+- **Full page** — stitches the entire scrollable page, including content below the fold (`Alt+Shift+F`)
+- **Select area** — drag to pick any region of the visible viewport (`Alt+Shift+R`)
+- **Capture element** — hover-pick any scrollable element (sidebar, chat pane, modal) and capture its full content
 - **Capture delay** — 3s or 5s delay to catch menus, dropdowns, and hover states
+
+Shortcuts can be rebound at `chrome://extensions/shortcuts`.
 
 ### Editor
 Every region capture opens in a dedicated annotation editor:
@@ -33,6 +36,7 @@ Every region capture opens in a dedicated annotation editor:
 - Blur — real pixel blur at Light / Medium / Strong intensity
 - Redact — one-click solid black bar
 - Eyedropper — pick any color directly from the screenshot
+- Frame — wrap the screenshot with padding, gradient or solid background, rounded corners, and drop shadow for share-ready visuals
 
 All annotations remain editable: select, move, delete, unlimited undo/redo.
 
@@ -42,7 +46,7 @@ All annotations remain editable: select, move, delete, unlimited undo/redo.
 - Or both at once
 
 ### Keyboard shortcuts
-`V` select · `R` rectangle · `O` ellipse · `L` line · `A` arrow · `H` highlight · `M` marker · `X` redact · `N` badge · `B` blur · `T` text · `I` eyedropper · `Cmd+Z` / `Cmd+Shift+Z` undo/redo · `Cmd+S` save · `Esc` cancel.
+`V` select · `R` rectangle · `O` ellipse · `L` line · `A` arrow · `H` highlight · `M` marker · `X` redact · `N` badge · `B` blur · `T` text · `F` frame · `I` eyedropper · `Cmd+Z` / `Cmd+Shift+Z` undo/redo · `Cmd+S` save · `Esc` cancel.
 
 ## Privacy
 

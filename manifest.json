@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Empiric Studio",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Premium screenshot tool. Capture full page or region, annotate with shapes, text, blur, redact. Copy to clipboard.",
   "permissions": [
     "activeTab",
@@ -22,6 +22,22 @@
   },
   "background": {
     "service_worker": "background.js"
+  },
+  "commands": {
+    "capture-full-page": {
+      "suggested_key": {
+        "default": "Alt+Shift+F",
+        "mac": "Alt+Shift+F"
+      },
+      "description": "Capture full page"
+    },
+    "capture-region": {
+      "suggested_key": {
+        "default": "Alt+Shift+R",
+        "mac": "Alt+Shift+R"
+      },
+      "description": "Capture region"
+    }
   },
   "icons": {
     "16": "icons/icon16.png",

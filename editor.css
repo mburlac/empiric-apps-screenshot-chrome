@@ -229,6 +229,13 @@ body {
   background-size: 16px 16px;
   background-position: 0 0, 0 8px, 8px -8px, -8px 0;
   background-color: #F5F5F7;
+  transition: padding 0.18s ease, background 0.18s ease;
+}
+
+.canvas-wrap.frame-on {
+  background-image: none;
+  background-size: auto;
+  background-position: 0 0;
 }
 
 #canvas {
@@ -236,6 +243,17 @@ body {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   border-radius: 4px;
   background: #FFFFFF;
+  transition: border-radius 0.18s ease, box-shadow 0.18s ease;
+}
+
+.frame-panel .swatch {
+  width: 24px;
+  height: 24px;
+}
+.frame-panel .stroke[aria-pressed="true"],
+.frame-panel #frameShadow.active {
+  background: var(--accent);
+  color: #FFFFFF;
 }
 
 #canvas.tool-select { cursor: default; }

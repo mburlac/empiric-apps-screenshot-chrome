@@ -7,6 +7,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     cropRegion(msg);
     return;
   }
+  if (msg.action === 'stitchElement') {
+    stitchElement(msg);
+    return;
+  }
   if (msg.action === 'copyToClipboard') {
     copyImageToClipboard(msg.dataUrl)
       .then(() => sendResponse({ ok: true }))
@@ -87,6 +91,51 @@ async function cropRegion({ dataUrl, rect, hostname, copyToClipboard, editBefore
     height: srcH,
     cssWidth: Math.round(rect.w),
     cssHeight: Math.round(rect.h),
+    dpr,
+  });
+}
+
+async function stitchElement({ captures, scrollHeight, cssWidth, dpr, hostname, copyToClipboard, editBeforeSave, mode }) {
+  const outW = Math.round(cssWidth * dpr);
+  const outH = Math.round(scrollHeight * dpr);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = outW;
+  canvas.height = outH;
+  const ctx = canvas.getContext('2d');
+
+  for (let i = 0; i < captures.length; i++) {
+    const { dataUrl, scrollTop, rect } = captures[i];
+    const img = await loadImage(dataUrl);
+
+    const sx = Math.max(0, Math.round(rect.x * dpr));
+    const sy = Math.max(0, Math.round(rect.y * dpr));
+    const sw = Math.min(img.width - sx, Math.round(rect.w * dpr));
+    const sh = Math.min(img.height - sy, Math.round(rect.h * dpr));
+
+    const dx = 0;
+    const dy = Math.round(scrollTop * dpr);
+    const dw = sw;
+    const dh = Math.min(sh, outH - dy);
+
+    if (dh > 0 && sw > 0 && sh > 0) {
+      ctx.drawImage(img, sx, sy, sw, dh, dx, dy, dw, dh);
+    }
+  }
+
+  const resultDataUrl = canvas.toDataURL('image/png');
+
+  chrome.runtime.sendMessage({
+    action: 'stitchComplete',
+    dataUrl: resultDataUrl,
+    hostname,
+    copyToClipboard,
+    editBeforeSave,
+    mode,
+    width: outW,
+    height: outH,
+    cssWidth: Math.round(cssWidth),
+    cssHeight: Math.round(scrollHeight),
     dpr,
   });
 }

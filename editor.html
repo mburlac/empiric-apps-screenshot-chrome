@@ -51,6 +51,45 @@
       <button class="tool" data-tool="text" title="Text (T)" aria-label="Text">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2"/><path d="M9 5v14"/><path d="M15 5v14"/><path d="M7 19h10"/></svg>
       </button>
+      <button class="tool" data-tool="frame" title="Frame (F)" aria-label="Frame">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="14" height="14" rx="2"/><path d="M3 9V5a2 2 0 0 1 2-2h4" opacity="0.45"/></svg>
+      </button>
+    </div>
+
+    <div class="divider" id="frameDivider" hidden></div>
+
+    <div class="group frame-panel" id="framePanel" hidden>
+      <span class="group-label">Background</span>
+      <button class="swatch swatch-none active" data-bg="none" aria-label="No background">
+        <svg viewBox="0 0 22 22" fill="none"><line x1="4" y1="18" x2="18" y2="4" stroke="#FF3B30" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <button class="swatch frame-bg" data-bg="grad-blue" aria-label="Blue gradient" style="background:linear-gradient(135deg,#667eea,#764ba2)"></button>
+      <button class="swatch frame-bg" data-bg="grad-sunset" aria-label="Sunset gradient" style="background:linear-gradient(135deg,#fa709a,#fee140)"></button>
+      <button class="swatch frame-bg" data-bg="grad-ocean" aria-label="Ocean gradient" style="background:linear-gradient(135deg,#4facfe,#00f2fe)"></button>
+      <button class="swatch frame-bg" data-bg="grad-mint" aria-label="Mint gradient" style="background:linear-gradient(135deg,#a8edea,#fed6e3)"></button>
+      <button class="swatch frame-bg" data-bg="grad-mono" aria-label="Mono gradient" style="background:linear-gradient(135deg,#232526,#414345)"></button>
+      <button class="swatch frame-bg" data-bg="solid-light" aria-label="Light" style="background:#F5F5F7;border:1px solid #E5E5E7"></button>
+      <button class="swatch frame-bg" data-bg="solid-dark" aria-label="Dark" style="background:#1D1D1F"></button>
+      <label class="swatch swatch-custom" title="Custom background">
+        <input type="color" id="customBg" value="#1D4ED8">
+      </label>
+
+      <span class="group-label" style="margin-left:10px">Padding</span>
+      <button class="stroke" data-pad="0" title="None">0</button>
+      <button class="stroke" data-pad="24" title="Small">S</button>
+      <button class="stroke" data-pad="48" title="Medium">M</button>
+      <button class="stroke" data-pad="96" title="Large">L</button>
+
+      <span class="group-label" style="margin-left:10px">Radius</span>
+      <button class="stroke" data-radius="0" title="None">0</button>
+      <button class="stroke" data-radius="8" title="Small">S</button>
+      <button class="stroke" data-radius="16" title="Medium">M</button>
+      <button class="stroke" data-radius="32" title="Large">L</button>
+
+      <span class="group-label" style="margin-left:10px">Shadow</span>
+      <button class="stroke" id="frameShadow" title="Toggle shadow" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="13" height="13" rx="2"/><path d="M9 19h11V8" opacity="0.4"/></svg>
+      </button>
     </div>
 
     <div class="divider" id="fontDivider" hidden></div>
@@ -71,7 +110,7 @@
       <button class="stroke" data-blur="18" title="Strong">18</button>
     </div>
 
-    <div class="divider"></div>
+    <div class="divider" id="strokesDivider"></div>
 
     <div class="group strokes" id="strokes">
       <button class="stroke" data-stroke="2" title="Thin" aria-label="Thin"><span style="width:20px;height:2px"></span></button>
@@ -79,7 +118,7 @@
       <button class="stroke" data-stroke="6" title="Thick" aria-label="Thick"><span style="width:20px;height:6px"></span></button>
     </div>
 
-    <div class="divider"></div>
+    <div class="divider" id="colorsDivider"></div>
 
     <div class="group colors" id="colors">
       <span class="group-label">Stroke</span>

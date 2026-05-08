@@ -1,6 +1,10 @@
 let offscreenReady = false;
 const pending = new Map();
 
+const KEY_CLIPBOARD = 'copyToClipboard';
+const KEY_EDIT = 'editBeforeSave';
+const KEY_DELAY = 'captureDelay';
+
 async function ensureOffscreen() {
   if (offscreenReady) return;
   const contexts = await chrome.runtime.getContexts({
@@ -46,6 +50,41 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  if (msg.action === 'startElementCapture') {
+    (async () => {
+      try {
+        await runCountdown(msg.delaySeconds);
+        await startElementCapture({
+          copyToClipboard: !!msg.copyToClipboard,
+          editBeforeSave: !!msg.editBeforeSave,
+        });
+        sendResponse({ pending: true });
+      } catch (err) {
+        sendResponse({ error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  if (msg.action === 'elementSelected') {
+    const tabId = sender.tab?.id;
+    const context = pending.get(tabId);
+    pending.delete(tabId);
+    captureElement({
+      tabId,
+      windowId: sender.tab?.windowId,
+      url: sender.tab?.url,
+      isPage: !!msg.isPage,
+      context,
+    }).catch((err) => console.error('Element capture failed:', err));
+    return;
+  }
+
+  if (msg.action === 'elementCancelled') {
+    pending.delete(sender.tab?.id);
+    return;
+  }
+
   if (msg.action === 'editorSave') {
     handleEditorSave(msg)
       .then(() => sendResponse({ ok: true }))
@@ -76,6 +115,34 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return;
   }
 });
+
+chrome.commands.onCommand.addListener(async (command) => {
+  try {
+    const data = await chrome.storage.local.get([KEY_CLIPBOARD, KEY_EDIT, KEY_DELAY]);
+    const copyToClipboard = !!data[KEY_CLIPBOARD];
+    const editBeforeSave = !!data[KEY_EDIT];
+    const delaySeconds = Number(data[KEY_DELAY]) || 0;
+
+    if (command === 'capture-full-page') {
+      await runCountdown(delaySeconds);
+      await captureFullPage({ copyToClipboard });
+    } else if (command === 'capture-region') {
+      await runCountdown(delaySeconds);
+      await startRegionCapture({ copyToClipboard, editBeforeSave });
+    }
+  } catch (err) {
+    flashErrorBadge();
+    console.error('Shortcut command failed:', err);
+  }
+});
+
+async function flashErrorBadge() {
+  try {
+    await chrome.action.setBadgeBackgroundColor({ color: '#FF3B30' });
+    await chrome.action.setBadgeText({ text: '!' });
+    setTimeout(() => chrome.action.setBadgeText({ text: '' }).catch(() => {}), 2000);
+  } catch {}
+}
 
 function assertCapturable(tab) {
   if (!tab?.id) throw new Error('No active tab');
@@ -192,6 +259,124 @@ async function startRegionCapture({ copyToClipboard, editBeforeSave }) {
   });
 }
 
+async function startElementCapture({ copyToClipboard, editBeforeSave }) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  assertCapturable(tab);
+
+  pending.set(tab.id, { copyToClipboard, editBeforeSave });
+
+  await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    files: ['element-picker.js'],
+  });
+}
+
+async function captureElement({ tabId, windowId, url, isPage, context }) {
+  if (!context) return;
+
+  if (isPage) {
+    await captureFullPage({ copyToClipboard: context.copyToClipboard });
+    return;
+  }
+
+  const [measResult] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      const el = document.querySelector('[data-empiric-target]');
+      if (!el) return null;
+      el.scrollTop = 0;
+      const r = el.getBoundingClientRect();
+      return {
+        rect: { x: r.left, y: r.top, w: r.width, h: r.height },
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+        scrollWidth: el.scrollWidth,
+        clientWidth: el.clientWidth,
+        dpr: window.devicePixelRatio || 1,
+      };
+    },
+  });
+  const m = measResult?.result;
+  if (!m) {
+    console.error('Lost element reference');
+    return;
+  }
+  if (m.rect.h < 50 || m.rect.w < 50) {
+    flashErrorBadge();
+    await clearElementMarker(tabId);
+    return;
+  }
+
+  const totalSteps = Math.max(1, Math.ceil(m.scrollHeight / m.clientHeight));
+  const totalScroll = Math.max(0, m.scrollHeight - m.clientHeight);
+  const captures = [];
+
+  await delay(200);
+
+  for (let i = 0; i < totalSteps; i++) {
+    const isLast = i === totalSteps - 1;
+    const targetScroll = isLast ? totalScroll : i * m.clientHeight;
+
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: (st) => {
+        const el = document.querySelector('[data-empiric-target]');
+        if (!el) return;
+        el.scrollTop = st;
+      },
+      args: [targetScroll],
+    });
+    await delay(350);
+
+    const [snap] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        const el = document.querySelector('[data-empiric-target]');
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { x: r.left, y: r.top, w: r.width, h: r.height, scrollTop: el.scrollTop };
+      },
+    });
+    const meas = snap?.result;
+    if (!meas) break;
+
+    const dataUrl = await captureWithRetry(windowId, 3);
+    captures.push({ dataUrl, scrollTop: meas.scrollTop, rect: meas });
+
+    chrome.runtime.sendMessage({
+      action: 'captureProgress',
+      current: i + 1,
+      total: totalSteps,
+    }).catch(() => {});
+  }
+
+  await clearElementMarker(tabId);
+
+  await ensureOffscreen();
+  chrome.runtime.sendMessage({
+    action: 'stitchElement',
+    captures,
+    scrollHeight: m.scrollHeight,
+    cssWidth: m.rect.w,
+    dpr: m.dpr,
+    hostname: extractHostname(url),
+    copyToClipboard: context.copyToClipboard,
+    editBeforeSave: context.editBeforeSave,
+    mode: 'element',
+  });
+}
+
+async function clearElementMarker(tabId) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        document.querySelector('[data-empiric-target]')?.removeAttribute('data-empiric-target');
+      },
+    });
+  } catch {}
+}
+
 async function captureRegion({ windowId, url, rect, context }) {
   if (!context) return;
   await delay(150);
@@ -211,8 +396,8 @@ async function captureRegion({ windowId, url, rect, context }) {
 }
 
 async function handleComposed({ dataUrl, hostname, copyToClipboard, editBeforeSave, mode, width, height, cssWidth, cssHeight, dpr }) {
-  if (editBeforeSave && mode === 'region') {
-    await openEditor({ dataUrl, hostname, copyToClipboard, width, height, cssWidth, cssHeight, dpr });
+  if (editBeforeSave && (mode === 'region' || mode === 'element')) {
+    await openEditor({ dataUrl, hostname, copyToClipboard, width, height, cssWidth, cssHeight, dpr, mode });
     return;
   }
   downloadScreenshot(dataUrl, hostname, mode);
@@ -233,9 +418,9 @@ async function copyViaOffscreen(dataUrl) {
   }
 }
 
-async function openEditor({ dataUrl, hostname, copyToClipboard, width, height, cssWidth, cssHeight, dpr }) {
+async function openEditor({ dataUrl, hostname, copyToClipboard, width, height, cssWidth, cssHeight, dpr, mode }) {
   await chrome.storage.session.set({
-    'editor.image': { dataUrl, hostname, copyToClipboard, width, height, cssWidth, cssHeight, dpr },
+    'editor.image': { dataUrl, hostname, copyToClipboard, width, height, cssWidth, cssHeight, dpr, mode },
   });
 
   const toolbarH = 56;
@@ -260,8 +445,8 @@ async function openEditor({ dataUrl, hostname, copyToClipboard, width, height, c
   });
 }
 
-async function handleEditorSave({ dataUrl, hostname, copyToClipboard }) {
-  downloadScreenshot(dataUrl, hostname, 'region');
+async function handleEditorSave({ dataUrl, hostname, copyToClipboard, mode }) {
+  downloadScreenshot(dataUrl, hostname, mode || 'region');
   if (copyToClipboard) {
     await copyViaOffscreen(dataUrl);
   }
@@ -271,8 +456,8 @@ function downloadScreenshot(dataUrl, hostname = 'page', mode = 'fullPage') {
   const now = new Date();
   const date = now.toISOString().slice(0, 10);
   const time = now.toTimeString().slice(0, 8).replace(/:/g, '.');
-  const suffix = mode === 'region' ? '_region' : '';
-  const ext = mode === 'region' ? 'png' : 'jpg';
+  const suffix = mode === 'region' ? '_region' : (mode === 'element' ? '_element' : '');
+  const ext = (mode === 'region' || mode === 'element') ? 'png' : 'jpg';
   chrome.downloads.download({
     url: dataUrl,
     filename: `Screenshot${suffix}_${hostname}_${date}_${time}.${ext}`,

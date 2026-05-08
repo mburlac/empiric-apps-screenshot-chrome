@@ -1,5 +1,6 @@
 const btnFull = document.getElementById('captureFull');
 const btnRegion = document.getElementById('captureRegion');
+const btnElement = document.getElementById('captureElement');
 const copyToggle = document.getElementById('copyToggle');
 const editToggle = document.getElementById('editToggle');
 const statusEl = document.getElementById('status');
@@ -18,6 +19,32 @@ chrome.storage.local.get([KEY_CLIPBOARD, KEY_EDIT, KEY_DELAY], (data) => {
   delaySeconds = Number(data[KEY_DELAY]) || 0;
   updateDelayUI();
 });
+
+renderShortcutHints();
+
+function renderShortcutHints() {
+  if (!chrome.commands?.getAll) return;
+  chrome.commands.getAll((commands) => {
+    const isMac = navigator.platform.toLowerCase().includes('mac');
+    const map = { 'capture-full-page': 'kbdFull', 'capture-region': 'kbdRegion' };
+    for (const cmd of commands) {
+      const el = document.getElementById(map[cmd.name]);
+      if (!el || !cmd.shortcut) continue;
+      el.textContent = formatShortcut(cmd.shortcut, isMac);
+    }
+  });
+}
+
+function formatShortcut(s, isMac) {
+  if (!isMac) return s;
+  return s
+    .replace(/Ctrl/g, '⌃')
+    .replace(/Alt/g, '⌥')
+    .replace(/Shift/g, '⇧')
+    .replace(/Command/g, '⌘')
+    .replace(/MacCtrl/g, '⌃')
+    .replace(/\+/g, '');
+}
 
 copyToggle.addEventListener('change', () => {
   chrome.storage.local.set({ [KEY_CLIPBOARD]: copyToggle.checked });
@@ -49,6 +76,7 @@ function setStatus(text, kind) {
 function setBusy(busy) {
   btnFull.disabled = busy;
   btnRegion.disabled = busy;
+  btnElement.disabled = busy;
   progressEl.classList.toggle('active', busy);
   if (!busy) progressFill.style.width = '0%';
 }
@@ -71,7 +99,8 @@ async function runCapture(action) {
       setBusy(false);
       return;
     } else if (response?.pending) {
-      setStatus(delaySeconds > 0 ? `Waiting ${delaySeconds}s...` : 'Draw a region on the page...');
+      const hint = action === 'startElementCapture' ? 'Pick an element on the page...' : 'Draw a region on the page...';
+      setStatus(delaySeconds > 0 ? `Waiting ${delaySeconds}s...` : hint);
       window.close();
       return;
     } else {
@@ -87,6 +116,7 @@ async function runCapture(action) {
 
 btnFull.addEventListener('click', () => runCapture('captureFullPage'));
 btnRegion.addEventListener('click', () => runCapture('startRegionCapture'));
+btnElement.addEventListener('click', () => runCapture('startElementCapture'));
 
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.action === 'captureProgress') {
