@@ -11,12 +11,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     stitchElement(msg);
     return;
   }
-  if (msg.action === 'copyToClipboard') {
-    copyImageToClipboard(msg.dataUrl)
-      .then(() => sendResponse({ ok: true }))
-      .catch((err) => sendResponse({ error: err.message }));
-    return true;
-  }
 });
 
 async function stitchCaptures({ captures, hostname, totalHeight, viewportWidth, viewportHeight, devicePixelRatio, copyToClipboard, mode }) {
@@ -138,27 +132,6 @@ async function stitchElement({ captures, scrollHeight, cssWidth, dpr, hostname, 
     cssHeight: Math.round(scrollHeight),
     dpr,
   });
-}
-
-async function copyImageToClipboard(dataUrl) {
-  const blob = await (await fetch(dataUrl)).blob();
-  const pngBlob = blob.type === 'image/png' ? blob : await convertToPng(dataUrl);
-  if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) {
-    throw new Error('Clipboard API not available in offscreen context');
-  }
-  await navigator.clipboard.write([
-    new ClipboardItem({ 'image/png': pngBlob }),
-  ]);
-}
-
-async function convertToPng(dataUrl) {
-  const img = await loadImage(dataUrl);
-  const canvas = document.createElement('canvas');
-  canvas.width = img.width;
-  canvas.height = img.height;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(img, 0, 0);
-  return await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
 }
 
 function loadImage(dataUrl) {

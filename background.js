@@ -1,6 +1,18 @@
 let offscreenReady = false;
 const pending = new Map();
 
+// The popup is a focused extension page with clipboardWrite permission, so it
+// can write images to the clipboard when it is open (e.g. during a full-page
+// capture, where the popup stays open). We track its port to route copies there.
+let popupPort = null;
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'popup') return;
+  popupPort = port;
+  port.onDisconnect.addListener(() => {
+    if (popupPort === port) popupPort = null;
+  });
+});
+
 const KEY_CLIPBOARD = 'copyToClipboard';
 const KEY_EDIT = 'editBeforeSave';
 const KEY_DELAY = 'captureDelay';
@@ -76,7 +88,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       url: sender.tab?.url,
       isPage: !!msg.isPage,
       context,
-    }).catch((err) => console.error('Element capture failed:', err));
+    }).catch((err) => { console.error('Element capture failed:', err); showPageError(tabId, err.message); });
     return;
   }
 
@@ -101,7 +113,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       url: sender.tab?.url,
       rect: msg.rect,
       context,
-    }).catch((err) => console.error('Region capture failed:', err));
+    }).catch((err) => { console.error('Region capture failed:', err); showPageError(tabId, err.message); });
     return;
   }
 
@@ -142,6 +154,55 @@ async function flashErrorBadge() {
     await chrome.action.setBadgeText({ text: '!' });
     setTimeout(() => chrome.action.setBadgeText({ text: '' }).catch(() => {}), 2000);
   } catch {}
+}
+
+// Element/region failures happen after the popup has closed, so the only
+// feedback would be an easy-to-miss badge. Show a toast on the page too.
+async function showPageError(tabId, message) {
+  flashErrorBadge();
+  if (!tabId) return;
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: (msg) => {
+        const el = document.createElement('div');
+        el.textContent = msg;
+        el.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;background:#1D1D1F;color:#fff;padding:12px 18px;border-radius:10px;font:500 13px -apple-system,BlinkMacSystemFont,system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.3);max-width:80vw;pointer-events:none;';
+        document.documentElement.appendChild(el);
+        setTimeout(() => el.remove(), 4000);
+      },
+      args: [message],
+    });
+  } catch {}
+}
+
+// chrome.runtime.sendMessage rejects payloads over 64MiB. A safety margin keeps
+// us clear of that while accounting for the rest of the message envelope.
+const MAX_MESSAGE_BYTES = 56 * 1024 * 1024;
+
+function capturesByteEstimate(captures) {
+  let total = 0;
+  for (const c of captures) total += c.dataUrl ? c.dataUrl.length : 0;
+  return total;
+}
+
+function assertCaptureNotTooLarge(captures) {
+  if (capturesByteEstimate(captures) > MAX_MESSAGE_BYTES) {
+    throw new Error('Image too large to process (over Chrome\'s 64MB limit). Try capturing a smaller region.');
+  }
+}
+
+// Chrome canvases cap at 65535px per side and ~268M px total area. Past that,
+// toDataURL silently returns an empty/blank image, so reject up front.
+const MAX_CANVAS_SIDE = 65535;
+const MAX_CANVAS_AREA = 268000000;
+
+function assertCanvasSizeOk(width, height) {
+  const w = Math.round(width);
+  const h = Math.round(height);
+  if (w > MAX_CANVAS_SIDE || h > MAX_CANVAS_SIDE || w * h > MAX_CANVAS_AREA) {
+    throw new Error('Page is too large to capture as one image. Try capturing a smaller region.');
+  }
 }
 
 function assertCapturable(tab) {
@@ -232,6 +293,9 @@ async function captureFullPage({ copyToClipboard }) {
   });
 
   const hostname = extractHostname(tab.url);
+
+  assertCanvasSizeOk(viewportWidth, scrollHeight);
+  assertCaptureNotTooLarge(captures);
 
   await ensureOffscreen();
   chrome.runtime.sendMessage({
@@ -352,6 +416,9 @@ async function captureElement({ tabId, windowId, url, isPage, context }) {
 
   await clearElementMarker(tabId);
 
+  assertCanvasSizeOk(m.rect.w * m.dpr, m.scrollHeight * m.dpr);
+  assertCaptureNotTooLarge(captures);
+
   await ensureOffscreen();
   chrome.runtime.sendMessage({
     action: 'stitchElement',
@@ -402,19 +469,95 @@ async function handleComposed({ dataUrl, hostname, copyToClipboard, editBeforeSa
   }
   downloadScreenshot(dataUrl, hostname, mode);
   if (copyToClipboard) {
-    await copyViaOffscreen(dataUrl);
+    await copyImage(dataUrl);
   }
 }
 
-async function copyViaOffscreen(dataUrl) {
-  await ensureOffscreen();
-  const result = await chrome.runtime.sendMessage({
-    action: 'copyToClipboard',
-    dataUrl,
+// navigator.clipboard.write requires a focused document. Try the popup first
+// (focused while open, e.g. during full-page capture); otherwise fall back to
+// the active tab (focused for region/element after the user interacted with the
+// page, and for keyboard-shortcut captures where no popup steals focus).
+async function copyImage(dataUrl) {
+  if (popupPort) {
+    try {
+      const ok = await copyViaPopupPort(dataUrl);
+      if (ok) {
+        return;
+      }
+    } catch (e) {
+      // Popup unavailable or failed; fall back to the active tab.
+    }
+  }
+  await copyViaActiveTab(dataUrl);
+}
+
+function copyViaPopupPort(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const port = popupPort;
+    if (!port) return reject(new Error('no popup port'));
+    const onMsg = (m) => {
+      if (m?.action !== 'clipboardResult') return;
+      cleanup();
+      resolve(m.ok);
+    };
+    const onDisc = () => { cleanup(); reject(new Error('popup disconnected')); };
+    const timer = setTimeout(() => { cleanup(); reject(new Error('popup timeout')); }, 4000);
+    function cleanup() {
+      clearTimeout(timer);
+      try { port.onMessage.removeListener(onMsg); } catch {}
+      try { port.onDisconnect.removeListener(onDisc); } catch {}
+    }
+    port.onMessage.addListener(onMsg);
+    port.onDisconnect.addListener(onDisc);
+    port.postMessage({ action: 'clipboardImage', dataUrl });
   });
-  if (result?.error) {
-    console.error('Clipboard write failed:', result.error);
-    throw new Error('Clipboard: ' + result.error);
+}
+
+// Fallback: write from the active tab's page context (a focusable document).
+// Focusing the tab's window first also dismisses any lingering action popup.
+async function copyViaActiveTab(dataUrl) {
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  if (!tab) throw new Error('No active tab for clipboard');
+
+  try { await chrome.windows.update(tab.windowId, { focused: true }); } catch {}
+  await delay(60);
+
+  let injection;
+  try {
+    [injection] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: writeImageToClipboardInPage,
+      args: [dataUrl],
+    });
+  } catch (err) {
+    console.error('[clipboard] injection failed:', err);
+    throw new Error('Clipboard: ' + err.message);
+  }
+
+  const result = injection?.result;
+  if (!result?.ok) {
+    throw new Error('Clipboard: ' + (result?.error || 'unknown error'));
+  }
+}
+
+// Runs in the page (active tab). Converts to PNG if needed, then writes.
+async function writeImageToClipboardInPage(dataUrl) {
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    let pngBlob = blob;
+    if (blob.type !== 'image/png') {
+      const bitmap = await createImageBitmap(blob);
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      canvas.getContext('2d').drawImage(bitmap, 0, 0);
+      pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    }
+    if (!document.hasFocus()) window.focus();
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
   }
 }
 
@@ -448,7 +591,7 @@ async function openEditor({ dataUrl, hostname, copyToClipboard, width, height, c
 async function handleEditorSave({ dataUrl, hostname, copyToClipboard, mode }) {
   downloadScreenshot(dataUrl, hostname, mode || 'region');
   if (copyToClipboard) {
-    await copyViaOffscreen(dataUrl);
+    await copyImage(dataUrl);
   }
 }
 

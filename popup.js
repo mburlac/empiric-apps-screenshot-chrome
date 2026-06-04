@@ -125,3 +125,34 @@ chrome.runtime.onMessage.addListener((msg) => {
     setStatus(`Capturing ${msg.current}/${msg.total}`);
   }
 });
+
+// The popup is a focused document with clipboardWrite permission. While it is
+// open (notably during full-page capture) the background routes the final image
+// here to write it to the clipboard, since the offscreen document and the active
+// tab are often not focused at copy time.
+const bgPort = chrome.runtime.connect({ name: 'popup' });
+bgPort.onMessage.addListener(async (msg) => {
+  if (msg.action !== 'clipboardImage') return;
+  let ok = false;
+  try {
+    await writeImageToClipboard(msg.dataUrl);
+    ok = true;
+  } catch (err) {
+    console.error('Popup clipboard write failed:', err);
+  }
+  try { bgPort.postMessage({ action: 'clipboardResult', ok }); } catch {}
+});
+
+async function writeImageToClipboard(dataUrl) {
+  const blob = await (await fetch(dataUrl)).blob();
+  let pngBlob = blob;
+  if (blob.type !== 'image/png') {
+    const bitmap = await createImageBitmap(blob);
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0);
+    pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  }
+  await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+}
